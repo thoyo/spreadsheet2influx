@@ -1,0 +1,34 @@
+version: "2"
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - 3000:3000
+    networks:
+      - private
+    restart: always
+
+  influxdb_mt:
+    image: influxdb:1.7.10
+    container_name: influxdb_mt
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "8090:8090"
+    networks:
+      - private
+    restart: always
+
+  spreadsheet2influx:
+    image: spreadsheet2influx:0.0.1
+    networks:
+      - private
+    depends_on:
+      - influxdb_mt
+    stdin_open: true
+    tty: true
+    restart: always
+
+networks:
+  private:
