@@ -1,12 +1,8 @@
-from datetime import datetime
-import requests
 from dotenv import load_dotenv
 import os
 import logging
 from influxdb import InfluxDBClient, DataFrameClient
 import time
-import re
-import json
 import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
@@ -26,25 +22,18 @@ else:
     INFLUX_HOST = "0.0.0.0"
 
 INFLUXDBCLIENT = DataFrameClient(host=INFLUX_HOST, port=INFLUX_PORT, database=INFLUX_DATABASE)
-SECONDS_IN_DAY = 3600 * 24
-METEOCAT_DATE_FORMAT = "%Y-%m-%dZ"
-PATTERN = r"([a-zA-Z_]+_f)_(\d+)"
 
 load_dotenv()
-api_key = os.getenv("API_KEY")
-if os.getenv("TEST") == "True":
-    URL = "http://simulator:5000/pronostic/v1/municipal/080193"
-else:
-    URL = "https://api.meteo.cat/pronostic/v1/municipal/080193"
 
-spreadsheet_id = '1_rUbAoVubKcX8SOs9oGiL2Urwhk2vEFHO7SS87HYtIs'
+# TODO: don't hardcode it, create API and support sending new IDs
+SPREADSHEET_ID = '1_rUbAoVubKcX8SOs9oGiL2Urwhk2vEFHO7SS87HYtIs'
 
 
 def get_data_from_spreadsheet():
     credentials = Credentials.from_service_account_file("service_account.json", 
                                                         scopes=['https://spreadsheets.google.com/feeds'])
     gc = gspread.authorize(credentials)
-    spreadsheet = gc.open_by_key(spreadsheet_id)
+    spreadsheet = gc.open_by_key(SPREADSHEET_ID)
     worksheet = spreadsheet.sheet1
     return worksheet.get_all_values()
 
