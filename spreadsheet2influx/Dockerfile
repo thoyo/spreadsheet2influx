@@ -12,7 +12,6 @@ RUN pip install -r requirements.txt
 ENV AM_I_IN_A_DOCKER_CONTAINER Yes
 
 COPY main.py .
-COPY .env .
 
 CMD ["python", "-u", "main.py"]
 
