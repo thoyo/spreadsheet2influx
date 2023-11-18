@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 import logging
-from influxdb import InfluxDBClient, DataFrameClient
+from influxdb import InfluxDBClient
 import time
 import gspread
 import pandas as pd
@@ -21,7 +21,7 @@ if os.environ.get("AM_I_IN_A_DOCKER_CONTAINER", False):
 else:
     INFLUX_HOST = "0.0.0.0"
 
-INFLUXDBCLIENT = DataFrameClient(host=INFLUX_HOST, port=INFLUX_PORT, database=INFLUX_DATABASE)
+INFLUXDBCLIENT = InfluxDBClient(host=INFLUX_HOST, port=INFLUX_PORT, database=INFLUX_DATABASE)
 
 load_dotenv()
 
@@ -30,7 +30,7 @@ SPREADSHEET_ID = '1_rUbAoVubKcX8SOs9oGiL2Urwhk2vEFHO7SS87HYtIs'
 
 
 def get_data_from_spreadsheet():
-    credentials = Credentials.from_service_account_file("service_account.json", 
+    credentials = Credentials.from_service_account_file("service_account.json",
                                                         scopes=['https://spreadsheets.google.com/feeds'])
     gc = gspread.authorize(credentials)
     spreadsheet = gc.open_by_key(SPREADSHEET_ID)
@@ -41,10 +41,48 @@ def get_data_from_spreadsheet():
 def write_data_to_influx(data):
     df = pd.DataFrame(data[1:], columns=data[0])
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%d/%m/%Y %H:%M:%S')
-    df.set_index('Timestamp', inplace=True)
-    df[df.columns.difference(['Timestamp'])] = df[df.columns.difference(['Timestamp'])].apply(pd.to_numeric, errors='coerce')
+
+    # Get the schema
+    columns_types = {}
+    for index, row in df.iterrows():
+        for column, value in row.items():
+            if column == "Timestamp":
+                continue
+            existing_column_type = columns_types.get(column)
+            try:
+                if value != "":
+                    _ = float(value)
+                # It's a float!
+                if existing_column_type is None:
+                    columns_types[column] = "float"
+            except ValueError:
+                # It's a string!
+                if existing_column_type is None or existing_column_type == "float":
+                    columns_types[column] = "string"
+
+    # Write the data
+    influx_data = []
+    for index, row in df.iterrows():
+        fields = {}
+        tags = {}
+        for column, value in row.items():
+            if column == "Timestamp" or value == "":
+                continue
+            if columns_types[column] == "string":
+                tags[column] = value
+            else:
+                fields[column] = float(value)
+        point = {
+            "measurement": "orella",
+            "time": row["Timestamp"].strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "fields": fields,
+            "tags": tags
+        }
+        influx_data.append(point)
+
     # TODO: query influx to get latest datapoint and only insert newer ones
-    INFLUXDBCLIENT.write_points(df, "orella", protocol="line")
+    # TODO: write in a measurement with the name of the spreadsheet
+    INFLUXDBCLIENT.write_points(influx_data)
 
 
 def main():
@@ -55,6 +93,7 @@ def main():
 if __name__ == "__main__":
     while True:
         try:
+            # TODO: iterate over spreadsheets must check
             main()
         except Exception as e:
             logging.error(e, exc_info=True)
