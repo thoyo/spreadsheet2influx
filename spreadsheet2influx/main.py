@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 import logging
-from influxdb import InfluxDBClient, DataFrameClient
+from influxdb import DataFrameClient
 import time
 import gspread
 import pandas as pd
