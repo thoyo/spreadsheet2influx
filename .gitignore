@@ -1,0 +1,6 @@
+.idea/*
+_env/*
+.env
+__pycache__/
+service_account.json
+
