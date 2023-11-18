@@ -53,6 +53,7 @@ def write_data_to_influx(data):
     df = pd.DataFrame(data[1:], columns=data[0])
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%d/%m/%Y %H:%M:%S')
     df.set_index('Timestamp', inplace=True)
+    df[df.columns.difference(['Timestamp'])] = df[df.columns.difference(['Timestamp'])].apply(pd.to_numeric, errors='coerce')
     # TODO: query influx to get latest datapoint and only insert newer ones
     INFLUXDBCLIENT.write_points(df, "orella", protocol="line")
 
