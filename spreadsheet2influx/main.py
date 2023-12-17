@@ -6,6 +6,7 @@ import time
 import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
+import json
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -26,14 +27,14 @@ INFLUXDBCLIENT = InfluxDBClient(host=INFLUX_HOST, port=INFLUX_PORT, database=INF
 load_dotenv()
 
 # TODO: don't hardcode it, create API and support sending new IDs
-SPREADSHEET_ID = '1_rUbAoVubKcX8SOs9oGiL2Urwhk2vEFHO7SS87HYtIs'
+SPREADSHEET_IDS = json.loads(os.getenv("SPREADSHEET_IDS"))
 
 
-def get_data_from_spreadsheet():
+def get_data_from_spreadsheet(spreadsheet_id):
     credentials = Credentials.from_service_account_file("service_account.json",
                                                         scopes=['https://spreadsheets.google.com/feeds'])
     gc = gspread.authorize(credentials)
-    spreadsheet = gc.open_by_key(SPREADSHEET_ID)
+    spreadsheet = gc.open_by_key(spreadsheet_id)
     worksheet = spreadsheet.sheet1
     return worksheet.get_all_values()
 
@@ -63,7 +64,7 @@ def write_data_to_influx(data):
     # Write the data
     influx_data = []
     for index, row in df.iterrows():
-        fields = {}
+        fields = {"event": 1}
         tags = {}
         for column, value in row.items():
             if column == "Timestamp" or value == "":
@@ -86,14 +87,14 @@ def write_data_to_influx(data):
 
 
 def main():
-    data = get_data_from_spreadsheet()
-    write_data_to_influx(data)
+    for spreadsheet_id in SPREADSHEET_IDS:
+        data = get_data_from_spreadsheet(spreadsheet_id)
+        write_data_to_influx(data)
 
 
 if __name__ == "__main__":
     while True:
         try:
-            # TODO: iterate over spreadsheets must check
             main()
         except Exception as e:
             logging.error(e, exc_info=True)
